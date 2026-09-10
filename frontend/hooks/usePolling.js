@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect, useState, useCallback } from "react";
 
 export function usePolling(fetchFn, intervalMs = 3000) {

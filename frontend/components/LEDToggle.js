@@ -1,23 +1,42 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Lightbulb } from "lucide-react";
 import { toggleLed } from "@/lib/api";
 
 export default function LEDToggle({ deviceId, led }) {
   const [state, setState] = useState(led.state);
   const [loading, setLoading] = useState(false);
+  const [measuring, setMeasuring] = useState(false);
+  const [frozenLatency, setFrozenLatency] = useState(null);
 
-  useEffect(() => setState(led.state), [led.state]);
+  const lastLatencyIdRef = useRef(null); // tracks which latency value we've already "consumed"
+
+  useEffect(() => {
+    setState(led.state);
+  }, [led.state]);
+
+  // When a genuinely NEW latency value arrives from backend, freeze it and stop measuring
+  useEffect(() => {
+    if (led.latency_ms != null && led.latency_ms !== lastLatencyIdRef.current) {
+      lastLatencyIdRef.current = led.latency_ms;
+      setFrozenLatency(led.latency_ms);
+      setMeasuring(false);
+    }
+  }, [led.latency_ms]);
 
   const handleToggle = async () => {
     setLoading(true);
+    setFrozenLatency(null);
+    setMeasuring(true); // start "measuring..." until backend confirms
+
     const newState = !state;
-    setState(newState); // optimistic
+    setState(newState);
     try {
       await toggleLed(deviceId, led.id, newState);
     } catch (err) {
-      setState(!newState); // revert on failure
+      setState(!newState);
+      setMeasuring(false);
       console.error("Toggle failed", err);
     } finally {
       setLoading(false);
@@ -32,23 +51,18 @@ export default function LEDToggle({ deviceId, led }) {
           className={state ? "text-amber-500" : "text-gray-400"}
           fill={state ? "currentColor" : "none"}
         />
-          <div>
-            <p className="text-sm font-medium text-gray-900">{led.label}</p>
-            <p className="text-xs text-gray-500">GPIO {led.pin}</p>
-          </div>
-
-
-            <div>
-                <p className="text-sm font-medium text-gray-900">{led.label}</p>
-                <p className="text-xs text-gray-500">
-                  GPIO {led.pin}
-                  {led.latency_ms != null && (
-                    <span className="ml-2 text-blue-600 font-medium">
-                      {led.latency_ms}ms latency
-                    </span>
-                  )}
-                </p>
-          </div>
+        <div>
+          <p className="text-sm font-medium text-gray-900">{led.label}</p>
+          <p className="text-xs text-gray-500 flex items-center gap-2">
+            <span>GPIO {led.pin}</span>
+            {measuring && (
+              <span className="text-gray-400 italic">measuring...</span>
+            )}
+            {!measuring && frozenLatency != null && (
+              <span className="text-blue-600 font-medium">{frozenLatency}ms</span>
+            )}
+          </p>
+        </div>
       </div>
 
       <button

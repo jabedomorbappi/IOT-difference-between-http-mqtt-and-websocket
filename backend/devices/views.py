@@ -90,15 +90,18 @@ def esp_post_sensor_data(request, device_id):
 
 @api_view(["POST"])
 def esp_confirm_led(request, device_id, led_id):
-    """ESP8266 calls this right after digitalWrite, to timestamp real latency."""
     try:
         led = LEDOutput.objects.get(id=led_id, device__device_id=device_id)
     except LEDOutput.DoesNotExist:
         return Response({"error": "LED not found"}, status=404)
 
+    if led.command_issued_at is None:
+        # No pending command — ignore (prevents stale/duplicate confirms)
+        return Response({"success": True, "latency_ms": led.latency_ms})
+
     led.command_applied_at = timezone.now()
-    if led.command_issued_at:
-        delta = led.command_applied_at - led.command_issued_at
-        led.latency_ms = int(delta.total_seconds() * 1000)
+    delta = led.command_applied_at - led.command_issued_at
+    led.latency_ms = int(delta.total_seconds() * 1000)
+    led.command_issued_at = None  # consume it — prevents re-triggering on next poll
     led.save()
     return Response({"success": True, "latency_ms": led.latency_ms})
