@@ -2,38 +2,36 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Lightbulb } from "lucide-react";
-import { toggleLed } from "@/lib/api";
+import { setChannelState } from "@/lib/api";
 
-export default function LEDToggle({ deviceId, led }) {
-  const [state, setState] = useState(led.state);
+export default function DigitalOutputToggle({ deviceId, channel }) {
+  const [state, setState] = useState(!!channel.state);
   const [loading, setLoading] = useState(false);
   const [measuring, setMeasuring] = useState(false);
   const [frozenLatency, setFrozenLatency] = useState(null);
-
-  const lastLatencyIdRef = useRef(null); // tracks which latency value we've already "consumed"
+  const lastLatencyRef = useRef(null);
 
   useEffect(() => {
-    setState(led.state);
-  }, [led.state]);
+    setState(!!channel.state);
+  }, [channel.state]);
 
-  // When a genuinely NEW latency value arrives from backend, freeze it and stop measuring
   useEffect(() => {
-    if (led.latency_ms != null && led.latency_ms !== lastLatencyIdRef.current) {
-      lastLatencyIdRef.current = led.latency_ms;
-      setFrozenLatency(led.latency_ms);
+    if (channel.latency_ms != null && channel.latency_ms !== lastLatencyRef.current) {
+      lastLatencyRef.current = channel.latency_ms;
+      setFrozenLatency(channel.latency_ms);
       setMeasuring(false);
     }
-  }, [led.latency_ms]);
+  }, [channel.latency_ms]);
 
   const handleToggle = async () => {
     setLoading(true);
     setFrozenLatency(null);
-    setMeasuring(true); // start "measuring..." until backend confirms
+    setMeasuring(true);
 
     const newState = !state;
     setState(newState);
     try {
-      await toggleLed(deviceId, led.id, newState);
+      await setChannelState(deviceId, channel.id, newState ? 1 : 0);
     } catch (err) {
       setState(!newState);
       setMeasuring(false);
@@ -52,12 +50,10 @@ export default function LEDToggle({ deviceId, led }) {
           fill={state ? "currentColor" : "none"}
         />
         <div>
-          <p className="text-sm font-medium text-gray-900">{led.label}</p>
+          <p className="text-sm font-medium text-gray-900">{channel.label}</p>
           <p className="text-xs text-gray-500 flex items-center gap-2">
-            <span>GPIO {led.pin}</span>
-            {measuring && (
-              <span className="text-gray-400 italic">measuring...</span>
-            )}
+            <span>GPIO {channel.pin}</span>
+            {measuring && <span className="text-gray-400 italic">measuring...</span>}
             {!measuring && frozenLatency != null && (
               <span className="text-blue-600 font-medium">{frozenLatency}ms</span>
             )}

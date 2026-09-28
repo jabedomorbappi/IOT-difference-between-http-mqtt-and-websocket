@@ -1,33 +1,32 @@
 from rest_framework import serializers
-from .models import Device, LEDOutput, SensorReading
+from .models import Device, DeviceChannel, ChannelReading
 
-
-class LEDOutputSerializer(serializers.ModelSerializer):
+class ChannelReadingSerializer(serializers.ModelSerializer):
     class Meta:
-        model = LEDOutput
-        fields = ["id", "label", "pin", "state", "updated_at","latency_ms"]
+        model = ChannelReading
+        fields = ["id", "value", "timestamp"]
 
 
-class SensorReadingSerializer(serializers.ModelSerializer):
+class DeviceChannelSerializer(serializers.ModelSerializer):
+    recent_readings = serializers.SerializerMethodField()
+
     class Meta:
-        model = SensorReading
-        fields = ["id", "sensor_type", "value", "unit", "timestamp"]
+        model = DeviceChannel
+        fields = [
+            "id", "label", "pin", "direction", "signal_type",
+            "state", "unit", "latency_ms", "updated_at", "recent_readings",
+        ]
+
+    def get_recent_readings(self, obj):
+        if obj.direction != "input":
+            return []
+        readings = obj.readings.all()[:10]
+        return ChannelReadingSerializer(readings, many=True).data
 
 
 class DeviceSerializer(serializers.ModelSerializer):
-    leds = LEDOutputSerializer(source="led_outputs", many=True, read_only=True)
-    latest_readings = serializers.SerializerMethodField()
+    channels = DeviceChannelSerializer(many=True, read_only=True)
 
     class Meta:
         model = Device
-        fields = ["id", "device_id", "name", "is_online", "last_seen", "leds", "latest_readings"]
-
-    def get_latest_readings(self, obj):
-        readings = obj.sensor_readings.all()[:10]
-        return SensorReadingSerializer(readings, many=True).data
-
-
-# class LEDOutputSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = LEDOutput
-#         fields = ["id", "label", "pin", "state", "updated_at", "latency_ms"]        
+        fields = ["id", "device_id", "name", "is_online", "last_seen", "channels"]

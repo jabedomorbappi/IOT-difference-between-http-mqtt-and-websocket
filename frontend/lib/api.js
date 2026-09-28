@@ -7,15 +7,21 @@ export async function getDevices() {
   return res.data;
 }
 
-export async function getDevice(deviceId) {
-  const res = await axios.get(`${API_URL}/devices/${deviceId}/`);
+// export async function getDevice(deviceId) {
+//   const res = await axios.get(`${API_URL}/devices/${deviceId}/`);
+//   return res.data;
+// }
+
+export async function setChannelState(deviceId, channelId, state) {
+  const res = await axios.post(
+    `${API_URL}/devices/${deviceId}/channel/${channelId}/set/`,
+    { state }
+  );
   return res.data;
 }
 
-export async function toggleLed(deviceId, ledId, state) {
-  const res = await axios.post(
-    `${API_URL}/devices/${deviceId}/led/${ledId}/toggle/`,
-    { state }
-  );
+
+export async function getDevice(deviceId) {
+  const res = await axios.get(`${API_URL}/devices/${deviceId}/`);
   return res.data;
 }
